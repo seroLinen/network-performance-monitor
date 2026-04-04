@@ -1,32 +1,31 @@
 import os
 import csv
-import subprocess
-import platform
+import socket
+import time
 from datetime import datetime
 
-# The servers you want to monitor
+# The servers and the DNS port (53) we are monitoring
 TARGETS = {
     "Google_DNS": "8.8.8.8",
     "Cloudflare_DNS": "1.1.1.1",
     "Quad9_DNS": "9.9.9.9"
 }
+PORT = 53
+TIMEOUT = 5
 
 def get_latency(host):
-    # Determines if the OS is Windows or Linux/Mac to use correct ping flag
-    param = '-n' if platform.system().lower() == 'windows' else '-c'
-    command = ['ping', param, '1', host]
-    
+    """
+    Measures latency using a TCP connection. 
+    This bypasses GitHub's ICMP (ping) block.
+    """
+    start_time = time.perf_counter()
     try:
-        # Run the ping command
-        output = subprocess.check_output(command, stderr=subprocess.STDOUT).decode()
-        
-        # Logic to extract the 'ms' value from the ping text
-        if "time=" in output:
-            # Typical format: "... time=15.2 ms ..."
-            latency = output.split("time=")[1].split("ms")[0].strip()
-            return f"{latency}ms"
-        return "No Response"
-    except Exception:
+        # Create a socket and attempt to connect to Port 53
+        with socket.create_connection((host, PORT), timeout=TIMEOUT) as sock:
+            end_time = time.perf_counter()
+            latency = (end_time - start_time) * 1000
+            return f"{latency:.2f}ms"
+    except (socket.timeout, Exception):
         return "Timeout/Error"
 
 def main():
